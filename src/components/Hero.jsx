@@ -22,8 +22,11 @@ const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  const frameRef = useRef(null);
+  const layerRefs = useRef({});
   const videoRefs = useRef({});
-  const previewRef = useRef(null);
+  const previewRefs = useRef({});
+  const previewContainerRef = useRef(null);
   const isAnimating = useRef(false);
   const hasPreloaded = useRef(false);
 
@@ -33,6 +36,21 @@ const Hero = () => {
     const timeout = setTimeout(() => setLoading(false), MAX_LOADER_MS);
     return () => clearTimeout(timeout);
   }, []);
+
+  // Only the visible preview plays; the rest stay paused so they cost nothing.
+  // The preview is resumed after a switch animation finishes (see below).
+  const playVisiblePreview = (visibleIndex) => {
+    videoIndexes.forEach((index) => {
+      const preview = previewRefs.current[index];
+      if (!preview) return;
+      if (index === visibleIndex) preview.play().catch(() => {});
+      else preview.pause();
+    });
+  };
+
+  useEffect(() => {
+    if (!isAnimating.current) playVisiblePreview(upcomingIndex);
+  }, [upcomingIndex, loading]);
 
   // Once the first video is playable, buffer the rest in the background so
   // switching videos is instant instead of waiting on a fresh download.
@@ -53,30 +71,57 @@ const Hero = () => {
     if (isAnimating.current) return;
     isAnimating.current = true;
 
+    const prevLayer = layerRefs.current[currentIndex];
     const prevVideo = videoRefs.current[currentIndex];
+    const nextLayer = layerRefs.current[upcomingIndex];
     const nextVideo = videoRefs.current[upcomingIndex];
 
+    const nextPreviewIndex = getNextIndex(upcomingIndex);
+
+    // Several videos decoding at once while the window grows makes Chrome
+    // drop to the video's 30fps mid-animation. Keep only the incoming video
+    // playing; the outgoing one and the card hold their current frame.
+    prevVideo.pause();
+    Object.values(previewRefs.current).forEach((preview) => preview?.pause());
     nextVideo.currentTime = 0;
     nextVideo.play().catch(() => {});
 
-    gsap.fromTo(
-      nextVideo,
-      { visibility: "visible", zIndex: 20, width: "16rem", height: "16rem" },
-      {
-        width: "100%",
-        height: "100%",
-        duration: 1,
-        ease: "power1.inOut",
-        onComplete: () => {
-          gsap.set(nextVideo, { zIndex: 10 });
-          gsap.set(prevVideo, { visibility: "hidden", zIndex: 0 });
-          prevVideo.pause();
-          isAnimating.current = false;
-        },
-      }
-    );
+    // Grow a centered window from the card size to full screen. Animating
+    // width/height forces a layout and a 1080p video rescale every frame,
+    // which drops frames midway; instead the layer is scaled into the window
+    // shape and the video counter-scaled to keep an object-cover look.
+    // Both are transforms, so the GPU compositor does all the work.
+    const { width, height } = frameRef.current.getBoundingClientRect();
+    const cardSize = previewContainerRef.current.offsetWidth;
 
-    gsap.from(previewRef.current, {
+    const applyProgress = (progress) => {
+      const scaleX = (cardSize + (width - cardSize) * progress) / width;
+      const scaleY = (cardSize + (height - cardSize) * progress) / height;
+      const cover = Math.max(scaleX, scaleY);
+      nextLayer.style.transform = `scale(${scaleX}, ${scaleY})`;
+      nextVideo.style.transform = `scale(${cover / scaleX}, ${cover / scaleY})`;
+    };
+
+    applyProgress(0);
+    gsap.set(nextLayer, { visibility: "visible", zIndex: 20 });
+
+    const progress = { value: 0 };
+    gsap.to(progress, {
+      value: 1,
+      duration: 1,
+      ease: "power1.inOut",
+      onUpdate: () => applyProgress(progress.value),
+      onComplete: () => {
+        nextLayer.style.transform = "";
+        nextVideo.style.transform = "";
+        gsap.set(nextLayer, { zIndex: 10 });
+        gsap.set(prevLayer, { visibility: "hidden", zIndex: 0 });
+        isAnimating.current = false;
+        playVisiblePreview(nextPreviewIndex);
+      },
+    });
+
+    gsap.from(previewContainerRef.current, {
       transformOrigin: "center center",
       scale: 0,
       duration: 1.5,
@@ -119,6 +164,7 @@ const Hero = () => {
 
       <div
         id="video-frame"
+        ref={frameRef}
         className="relative z-10 h-dvh w-screen overflow-hidden rounded-lg bg-blue-75"
       >
         <div>
@@ -128,38 +174,52 @@ const Hero = () => {
                 onClick={handleMiniVdClick}
                 className="origin-center scale-50 opacity-0 transition-all duration-500 ease-in hover:scale-100 hover:opacity-100 [@media(hover:none)]:scale-100 [@media(hover:none)]:opacity-100"
               >
-                <video
-                  ref={previewRef}
-                  // Wait for the main video so the two don't compete for bandwidth
-                  src={loading ? undefined : getVideoSrc(upcomingIndex)}
-                  poster={getPosterSrc(upcomingIndex)}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                  className="size-64 origin-center scale-150 object-cover object-center"
-                />
+                <div
+                  ref={previewContainerRef}
+                  className="relative size-64 origin-center"
+                >
+                  {videoIndexes.map((index) => (
+                    <video
+                      key={index}
+                      ref={(el) => (previewRefs.current[index] = el)}
+                      // Wait for the main video so they don't compete for bandwidth
+                      src={loading ? undefined : getVideoSrc(index)}
+                      poster={getPosterSrc(index)}
+                      loop
+                      muted
+                      playsInline
+                      preload={index === upcomingIndex ? "auto" : "none"}
+                      className={`absolute left-0 top-0 size-64 origin-center scale-150 object-cover object-center ${
+                        index === upcomingIndex ? "" : "invisible"
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
             </VideoPreview>
           </div>
 
           {videoIndexes.map((index) => (
-            <video
+            <div
               key={index}
-              ref={(el) => (videoRefs.current[index] = el)}
-              src={getVideoSrc(index)}
-              poster={getPosterSrc(index)}
-              autoPlay={index === 1}
-              preload={index === 1 ? "auto" : "none"}
-              loop
-              muted
-              playsInline
-              onCanPlay={index === 1 ? handleFirstVideoReady : undefined}
-              className={`absolute-center absolute size-full object-cover object-center ${
+              ref={(el) => (layerRefs.current[index] = el)}
+              className={`absolute inset-0 origin-center overflow-hidden will-change-transform ${
                 index === 1 ? "z-10" : "invisible"
               }`}
-            />
+            >
+              <video
+                ref={(el) => (videoRefs.current[index] = el)}
+                src={getVideoSrc(index)}
+                poster={getPosterSrc(index)}
+                autoPlay={index === 1}
+                preload={index === 1 ? "auto" : "none"}
+                loop
+                muted
+                playsInline
+                onCanPlay={index === 1 ? handleFirstVideoReady : undefined}
+                className="size-full origin-center object-cover object-center will-change-transform"
+              />
+            </div>
           ))}
         </div>
 
