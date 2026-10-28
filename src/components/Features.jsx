@@ -3,8 +3,9 @@ import { TiLocationArrow } from "react-icons/ti";
 
 import LazyVideo from "./LazyVideo";
 
+// Tilt is written straight to the element's style so mouse movement doesn't
+// re-render the card (and its video) on every event.
 export const BentoTilt = ({ children, className = "" }) => {
-  const [transformStyle, setTransformStyle] = useState("");
   const itemRef = useRef(null);
 
   const handleMouseMove = (event) => {
@@ -19,12 +20,11 @@ export const BentoTilt = ({ children, className = "" }) => {
     const tiltX = (relativeY - 0.5) * 5;
     const tiltY = (relativeX - 0.5) * -5;
 
-    const newTransform = `perspective(700px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(.95, .95, .95)`;
-    setTransformStyle(newTransform);
+    itemRef.current.style.transform = `perspective(700px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(.95, .95, .95)`;
   };
 
   const handleMouseLeave = () => {
-    setTransformStyle("");
+    if (itemRef.current) itemRef.current.style.transform = "";
   };
 
   return (
@@ -33,7 +33,6 @@ export const BentoTilt = ({ children, className = "" }) => {
       className={className}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      style={{ transform: transformStyle }}
     >
       {children}
     </div>

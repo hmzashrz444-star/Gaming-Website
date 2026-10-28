@@ -1,11 +1,55 @@
 import gsap from "gsap";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import Button from "./Button";
 import AnimatedTitle from "./AnimatedTitle";
 
+// Corners of the image mask, as fractions of its width/height.
+const MASK_POINTS = [
+  [0.04, 0],
+  [0.83, 0.21],
+  [1, 0.73],
+  [0, 1],
+];
+const MASK_CORNER_RADIUS = 16;
+
+// Polygon clip path with rounded corners. Replaces an SVG blur filter that
+// produced the same rounding but had to be recomputed on the CPU on every
+// repaint, which made scrolling and the hover tilt stutter.
+const roundedPolygonPath = (width, height) => {
+  const points = MASK_POINTS.map(([x, y]) => [x * width, y * height]);
+  const towards = ([x1, y1], [x2, y2]) => {
+    const length = Math.hypot(x2 - x1, y2 - y1);
+    const t = Math.min(MASK_CORNER_RADIUS, length / 2) / length;
+    return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
+  };
+
+  const segments = points.map((point, i) => {
+    const prev = points[(i + points.length - 1) % points.length];
+    const next = points[(i + 1) % points.length];
+    const [ax, ay] = towards(point, prev);
+    const [bx, by] = towards(point, next);
+    return `${i === 0 ? "M" : "L"} ${ax} ${ay} Q ${point[0]} ${point[1]} ${bx} ${by}`;
+  });
+
+  return `path("${segments.join(" ")} Z")`;
+};
+
 const FloatingImage = () => {
   const frameRef = useRef(null);
+  const maskRef = useRef(null);
+
+  useEffect(() => {
+    const mask = maskRef.current;
+    if (!mask) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      mask.style.clipPath = roundedPolygonPath(width, height);
+    });
+    observer.observe(mask);
+    return () => observer.disconnect();
+  }, []);
 
   const handleMouseMove = (e) => {
     const { clientX, clientY } = e;
@@ -59,7 +103,7 @@ const FloatingImage = () => {
           />
 
           <div className="story-img-container">
-            <div className="story-img-mask">
+            <div ref={maskRef} className="story-img-mask">
               <div className="story-img-content">
                 <img
                   ref={frameRef}
@@ -75,33 +119,6 @@ const FloatingImage = () => {
                 />
               </div>
             </div>
-
-            {/* for the rounded corner */}
-            <svg
-              className="invisible absolute size-0"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <filter id="flt_tag">
-                  <feGaussianBlur
-                    in="SourceGraphic"
-                    stdDeviation="8"
-                    result="blur"
-                  />
-                  <feColorMatrix
-                    in="blur"
-                    mode="matrix"
-                    values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
-                    result="flt_tag"
-                  />
-                  <feComposite
-                    in="SourceGraphic"
-                    in2="flt_tag"
-                    operator="atop"
-                  />
-                </filter>
-              </defs>
-            </svg>
           </div>
         </div>
 

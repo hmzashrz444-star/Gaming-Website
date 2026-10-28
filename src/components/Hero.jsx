@@ -31,6 +31,8 @@ const Hero = () => {
   const hasPreloaded = useRef(false);
 
   const upcomingIndex = getNextIndex(currentIndex);
+  const currentIndexRef = useRef(currentIndex);
+  currentIndexRef.current = currentIndex;
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), MAX_LOADER_MS);
@@ -51,6 +53,32 @@ const Hero = () => {
   useEffect(() => {
     if (!isAnimating.current) playVisiblePreview(upcomingIndex);
   }, [upcomingIndex, loading]);
+
+  // Stop decoding 1080p video while the hero is scrolled out of view.
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      const visibleVideo = Object.values(videoRefs.current).find(
+        (video) =>
+          video &&
+          getComputedStyle(video.parentElement).visibility === "visible",
+      );
+      if (entry.isIntersecting) {
+        visibleVideo?.play().catch(() => {});
+        if (!isAnimating.current)
+          playVisiblePreview(getNextIndex(currentIndexRef.current));
+      } else {
+        Object.values(videoRefs.current).forEach((video) => video?.pause());
+        Object.values(previewRefs.current).forEach((preview) =>
+          preview?.pause(),
+        );
+      }
+    });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
 
   // Once the first video is playable, buffer the rest in the background so
   // switching videos is instant instead of waiting on a fresh download.
