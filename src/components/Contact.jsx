@@ -3,7 +3,7 @@ import Button from "./Button";
 
 const ImageClipBox = ({ src, clipClass }) => (
   <div className={clipClass}>
-    <img src={src} />
+    <img src={src} alt="" loading="lazy" decoding="async" />
   </div>
 );
 
@@ -43,7 +43,11 @@ const Contact = () => {
             className="special-font !md:text-[6.2rem] w-full font-zentry !text-5xl !font-black !leading-[.9]"
           />
 
-          <Button title="contact us" containerClass="mt-10 cursor-pointer" />
+          <Button
+            title="contact us"
+            href="https://www.upwork.com/freelancers/~0184102d07b7203db0"
+            containerClass="mt-10 cursor-pointer"
+          />
         </div>
       </div>
     </div>
