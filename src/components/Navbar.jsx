@@ -6,7 +6,10 @@ import { TiLocationArrow } from "react-icons/ti";
 
 import Button from "./Button";
 
-const navItems = ["Nexus", "Vault", "Prologue", "About", "Contact"];
+const UPWORK_URL = "https://www.upwork.com/freelancers/~0184102d07b7203db0";
+const PORTFOLIO_URL = "https://www.behance.net/hamzabinshiraz";
+
+const navItems = [{ label: "Contact", href: UPWORK_URL }];
 
 const NavBar = () => {
   // State for toggling audio and visual indicator
@@ -69,40 +72,44 @@ const NavBar = () => {
     >
       <header className="absolute top-1/2 w-full -translate-y-1/2">
         <nav className="flex size-full items-center justify-between p-4">
-          {/* Logo and Product button */}
-          <div className="flex items-center gap-7">
+          {/* Logo and Portfolio button */}
+          <div className="flex items-center gap-4 md:gap-7">
             <img src="/img/logo.png" alt="logo" className="w-10" />
 
             <Button
-              id="product-button"
-              title="Products"
+              id="portfolio-button"
+              title="Portfolio"
+              href={PORTFOLIO_URL}
               rightIcon={<TiLocationArrow />}
-              containerClass="bg-blue-50 md:flex hidden items-center justify-center gap-1"
+              containerClass="bg-blue-50 flex items-center justify-center gap-1"
             />
           </div>
 
           {/* Navigation Links and Audio Button */}
           <div className="flex h-full items-center">
-            <div className="hidden md:block">
-              {navItems.map((item, index) => (
+            <div>
+              {navItems.map(({ label, href }) => (
                 <a
-                  key={index}
-                  href={`#${item.toLowerCase()}`}
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="nav-hover-btn"
                 >
-                  {item}
+                  {label}
                 </a>
               ))}
             </div>
 
             <button
               onClick={toggleAudioIndicator}
-              className="ml-10 flex items-center space-x-0.5"
+              className="ml-6 flex items-center space-x-0.5 md:ml-10"
             >
               <audio
                 ref={audioElementRef}
                 className="hidden"
                 src="/audio/loop.mp3"
+                preload="none"
                 loop
               />
               {[1, 2, 3, 4].map((bar) => (
