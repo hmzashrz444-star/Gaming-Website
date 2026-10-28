@@ -79,8 +79,17 @@ body {
     @apply absolute bottom-[-80dvh] left-1/2 w-full max-w-96 -translate-x-1/2 text-center font-circular-web text-lg md:max-w-[34rem];
   }
 
+  /* Full-size box revealed by a clip-path animated from About.jsx; the
+     initial inset mirrors the starting card so there's no flash before JS. */
   .about-image {
-    @apply absolute left-1/2 top-0 z-20 h-[60vh] w-96 origin-center -translate-x-1/2 overflow-hidden rounded-3xl md:w-[30vw];
+    @apply absolute left-0 top-0 z-20 size-full overflow-hidden;
+    clip-path: inset(0 calc(50% - min(12rem, 50%)) 40% calc(50% - min(12rem, 50%)) round 24px);
+  }
+
+  @media (min-width: 768px) {
+    .about-image {
+      clip-path: inset(0 35% 40% 35% round 24px);
+    }
   }
 
   .animated-title {
@@ -108,9 +117,9 @@ body {
 
   .story-img-container {
     @apply relative md:h-dvh h-[90vh] w-full;
-    filter: url("#flt_tag");
   }
 
+  /* Sharp-cornered fallback; Story.jsx swaps in a rounded path on mount */
   .story-img-mask {
     @apply absolute left-0 top-0 size-full overflow-hidden md:left-[20%] md:top-[-10%] md:size-4/5;
     clip-path: polygon(4% 0, 83% 21%, 100% 73%, 0% 100%);

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
-// Only downloads the video once it's near the viewport, and pauses it while
-// off-screen so off-screen videos don't burn bandwidth or CPU.
+// Only downloads the video once it's near the viewport (early enough to be
+// ready when it scrolls in), and pauses it while off-screen so off-screen
+// videos don't burn bandwidth or CPU.
 const LazyVideo = ({ src, className }) => {
   const videoRef = useRef(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -19,7 +20,7 @@ const LazyVideo = ({ src, className }) => {
           video.pause();
         }
       },
-      { rootMargin: "300px 0px" }
+      { rootMargin: "800px 0px" },
     );
 
     observer.observe(video);
